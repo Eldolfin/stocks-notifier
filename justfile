@@ -12,3 +12,13 @@ watch:
 # Build & run the program
 run:
     cargo run
+
+# Build & run the program saving logs to ./logs/
+run-logs:
+    @mkdir -p logs
+    just run 2>&1 | tee "logs/$(date --rfc-3339=seconds)"
+
+# Deploy to my server
+deploy:
+    git push --force-with-lease deploy
+    ssh ubuntu@search.eldolfin.top "cd stocks-notifier && git reset --hard"

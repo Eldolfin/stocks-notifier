@@ -146,7 +146,7 @@ impl Report {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    pretty_env_logger::init();
+    env_logger::init();
     info!("Initializing...");
     let conf = EnvConfig::new().context("Could not parse config from environment")?;
     let bot = Bot::from_env();
