@@ -42,29 +42,24 @@ impl EnvConfig {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-enum AlertSpan {
-    Day,
-    Week,
-}
-
 struct AlertItem {
     ticker_full_name: String,
     ticker_name: String,
-    span: AlertSpan,
     delta: f64,
     ticker_before: Quote,
     ticker_now: Quote,
 }
 
 struct Report {
-    alerts: Vec<AlertItem>,
+    week_losers: Vec<AlertItem>,
+    day_losers: Vec<AlertItem>,
 }
 
 impl Report {
     async fn fetch_now(conf: &EnvConfig) -> anyhow::Result<Self> {
         let provider = yahoo::YahooConnector::new().context("Error connecting to yahoo")?;
-        let mut alerts = Vec::new();
+        let mut week_losers = Vec::new();
+        let mut day_losers = Vec::new();
         for ticker in &conf.watched_stocks {
             let ticker_history = provider
                 .get_quote_range(ticker, "1d", "7d")
@@ -89,10 +84,9 @@ impl Report {
 
             if delta_week < -conf.week_delta_threshold {
                 debug!("✅ Adding a week alert for {ticker} ({delta_week:.2}%)");
-                alerts.push(AlertItem {
+                week_losers.push(AlertItem {
                     ticker_full_name: ticker_full_name.clone(),
                     ticker_name: ticker.to_owned(),
-                    span: AlertSpan::Week,
                     delta: delta_week,
                     ticker_before: last_week.to_owned(),
                     ticker_now: now.to_owned(),
@@ -102,10 +96,9 @@ impl Report {
             }
             if delta_day < -conf.day_delta_threshold {
                 debug!("✅ Adding a day alert for {ticker} ({delta_day:.2}%)");
-                alerts.push(AlertItem {
+                day_losers.push(AlertItem {
                     ticker_full_name: ticker_full_name.clone(),
                     ticker_name: ticker.to_owned(),
-                    span: AlertSpan::Day,
                     delta: delta_day,
                     ticker_before: yesterday.to_owned(),
                     ticker_now: now.to_owned(),
@@ -114,12 +107,41 @@ impl Report {
                 debug!("❌ NOT adding a day alert for {ticker} ({delta_day:.2}%)");
             }
         }
-        Ok(Self { alerts })
+        week_losers.sort_by(|a, b| {
+            a.delta
+                .partial_cmp(&b.delta)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        day_losers.sort_by(|a, b| {
+            a.delta
+                .partial_cmp(&b.delta)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        Ok(Self {
+            week_losers,
+            day_losers,
+        })
     }
 
     fn to_formatted_message(&self) -> String {
-        let stocks = self
-            .alerts
+        let week_losers = Self::formatted_message_section(&self.week_losers);
+        let day_losers = Self::formatted_message_section(&self.day_losers);
+        let half_bar = markdown::escape("===============");
+        format!(
+            r#"
+🚨 __Stocks alert__ 🚨
+
+{half_bar} Week losers {half_bar}
+{week_losers}
+
+{half_bar} Day losers {half_bar}
+{day_losers}
+"#
+        )
+    }
+
+    fn formatted_message_section(companies: &[AlertItem]) -> String {
+        companies
             .iter()
             .map(|alert| {
                 let name = markdown::escape(&format!(
@@ -127,20 +149,14 @@ impl Report {
                     alert.ticker_full_name, alert.ticker_name
                 ));
                 let delta = markdown::escape(&format!("{:.2}%", alert.delta));
-                let span = &format!("{:?}", alert.span);
                 let delta_details = markdown::escape(&format!(
                     "({:.2}$ -> {:.2}$)",
                     alert.ticker_before.open, alert.ticker_now.close
                 ));
-                format!("`{name}` *{delta}* {span:?} _{delta_details}_",)
+                format!("`{name}` *{delta}* _{delta_details}_",)
             })
             .collect::<Vec<_>>()
-            .join("\n");
-        format!(
-            r#"🚨 __Stocks alert__ 🚨
-{stocks}
-"#
-        )
+            .join("\n")
     }
 }
 
@@ -157,7 +173,7 @@ async fn main() -> anyhow::Result<()> {
         .context("Could not fetch stocks report")?;
 
     info!("Sending report on telegram...");
-    if !report.alerts.is_empty() {
+    if !report.week_losers.is_empty() {
         let message = report.to_formatted_message();
         bot.send_message(conf.chat_id, message)
             .parse_mode(teloxide::types::ParseMode::MarkdownV2)
