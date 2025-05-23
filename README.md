@@ -3,7 +3,8 @@
 A simple program that sends alerts when a watched stock drops by a specified
 percentage within a short time frame.
 
-![Message example](https://github.com/user-attachments/assets/d9f9f1be-b075-4d4d-bfc0-f5d694caf3e8)
+![Message example](https://github.com/user-attachments/assets/d68c769e-00d2-4a3a-a3a5-eda024446e1d)
+
 
 (The thresholds are purposefully low here for demonstration)
 
