@@ -134,17 +134,31 @@ impl Report {
     }
 
     fn to_formatted_message(&self) -> String {
-        let week_losers = Self::formatted_message_section(&self.week_losers);
-        let day_losers = Self::formatted_message_section(&self.day_losers);
         let half_bar = markdown::escape(&"=".repeat(16));
+        let week_losers = if self.week_losers.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "
+{half_bar} Week losers {half_bar}
+{}",
+                Self::formatted_message_section(&self.week_losers)
+            )
+        };
+        let day_losers = if self.day_losers.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "
+{half_bar} Day losers {half_bar}
+{}",
+                Self::formatted_message_section(&self.day_losers)
+            )
+        };
         format!(
             r#"
 🚨 __Stocks alert__ 🚨
-
-{half_bar} Week losers {half_bar}
 {week_losers}
-
-{half_bar} Day losers {half_bar}
 {day_losers}
 "#
         )
