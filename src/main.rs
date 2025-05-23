@@ -69,9 +69,19 @@ impl Report {
                 .metadata()
                 .with_context(|| format!("Failed to get full name for {ticker}"))?;
             let ticker_full_name = ticker_meta
-                .long_name
-                .or(ticker_meta.short_name)
-                .unwrap_or_else(|| "FULLNAME_MISSING".to_string());
+                .short_name
+                .or(ticker_meta.long_name)
+                .unwrap_or_else(|| "FULLNAME_MISSING".to_string())
+                // cleanup name
+                .replace("Inc.", "")
+                .replace(",", "")
+                .replace(" & Co.", "")
+                .replace(" (The)", "")
+                .replace("Corporation", "")
+                .replace("Incorporated", "")
+                .replace("Company", "")
+                .trim()
+                .to_string();
             let quotes = ticker_history
                 .quotes()
                 .with_context(|| format!("Failed to get quotes for {ticker}"))?;
@@ -126,7 +136,7 @@ impl Report {
     fn to_formatted_message(&self) -> String {
         let week_losers = Self::formatted_message_section(&self.week_losers);
         let day_losers = Self::formatted_message_section(&self.day_losers);
-        let half_bar = markdown::escape("===============");
+        let half_bar = markdown::escape(&"=".repeat(16));
         format!(
             r#"
 🚨 __Stocks alert__ 🚨
@@ -141,12 +151,19 @@ impl Report {
     }
 
     fn formatted_message_section(companies: &[AlertItem]) -> String {
+        let max_fullname_length = companies
+            .iter()
+            .map(|c| c.ticker_full_name.len() + c.ticker_name.len())
+            .max()
+            .unwrap_or(0);
         companies
             .iter()
             .map(|alert| {
                 let name = markdown::escape(&format!(
-                    "{} ({})",
-                    alert.ticker_full_name, alert.ticker_name
+                    "{:width$} ({})",
+                    alert.ticker_full_name,
+                    alert.ticker_name,
+                    width = max_fullname_length - alert.ticker_name.len(),
                 ));
                 let delta = markdown::escape(&format!("{:.2}%", alert.delta));
                 let delta_details = markdown::escape(&format!(
