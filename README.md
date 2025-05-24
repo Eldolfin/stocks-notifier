@@ -35,6 +35,9 @@ This will run the bot every day at 10AM
 - (optional) change the configuration in ./.github/workflows/cron.yml
 - set `TELOXIDE_TOKEN` and `TELEGRAM_CHAT_ID` in your repo's secrets to your
   telegram bot api and the chat id you want notifications to be sent to
-  - navigate to
-    https://github.com/<username>/stocks-notifier/settings/secrets/actions
+  - navigate to `https://github.com/<username>/stocks-notifier/settings/secrets/actions`
   - add the two variables as such
+    <kbd>
+      <img src="https://github.com/user-attachments/assets/1c2e50a5-ed78-4708-8e9e-9ef058963570">
+    </kbd>
+
