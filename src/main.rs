@@ -165,7 +165,7 @@ impl Report {
     }
 
     fn formatted_message_section(companies: &[AlertItem]) -> String {
-        let max_fullname_length = companies
+        let max_ticker_length = companies
             .iter()
             .map(|c| c.ticker_full_name.len() + c.ticker_name.len())
             .max()
@@ -175,9 +175,9 @@ impl Report {
             .map(|alert| {
                 let name = markdown::escape(&format!(
                     "{:width$} ({})",
-                    alert.ticker_full_name,
                     alert.ticker_name,
-                    width = max_fullname_length - alert.ticker_name.len(),
+                    alert.ticker_full_name,
+                    width = max_ticker_length - alert.ticker_full_name.len(),
                 ));
                 let delta = markdown::escape(&format!("{:.2}%", alert.delta));
                 let delta_details = markdown::escape(&format!(
