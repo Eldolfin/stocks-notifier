@@ -1,6 +1,7 @@
 use anyhow::Context;
 use log::{debug, warn};
 use teloxide::{prelude::*, utils::markdown};
+use tokio::task::JoinSet;
 use yahoo_finance_api::{self as yahoo, Quote};
 pub(crate) struct EnvConfig {
     pub(crate) chat_id: ChatId,
@@ -56,15 +57,30 @@ pub(crate) struct Report {
 
 impl Report {
     pub(crate) async fn fetch_now(conf: &EnvConfig) -> anyhow::Result<Self> {
-        let provider = yahoo::YahooConnector::new().context("Error connecting to yahoo")?;
         let mut week_losers = Vec::new();
         let mut day_losers = Vec::new();
-        for ticker in &conf.watched_stocks {
-            let ticker_history = provider
-                .get_quote_range(ticker, "1d", "7d")
-                .await
-                .with_context(|| format!("Failed to retrieve data for {ticker}"))?;
-            let ticker_meta = ticker_history
+        let tickers_futs: JoinSet<_> = conf
+            .watched_stocks
+            .to_owned()
+            .into_iter()
+            .map(|ticker| async move {
+                let provider = yahoo::YahooConnector::new().context("Error connecting to yahoo")?;
+                let ticker_data = provider
+                    .get_quote_range(&ticker, "1d", "7d")
+                    .await
+                    .with_context(|| {
+                        format!("Could not retrieve last 7 days for ticker {ticker}")
+                    })?;
+                Ok((ticker.to_owned(), ticker_data))
+            })
+            .collect();
+        let tickers = tickers_futs
+            .join_all()
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, anyhow::Error>>()?;
+        for (ticker, ticker_data) in tickers {
+            let ticker_meta = ticker_data
                 .metadata()
                 .with_context(|| format!("Failed to get full name for {ticker}"))?;
             let ticker_full_name = ticker_meta
@@ -81,7 +97,7 @@ impl Report {
                 .replace("Company", "")
                 .trim()
                 .to_string();
-            let quotes = ticker_history
+            let quotes = ticker_data
                 .quotes()
                 .with_context(|| format!("Failed to get quotes for {ticker}"))?;
             let Some(last_week) = quotes.iter().rev().nth(6) else {
