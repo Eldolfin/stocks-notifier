@@ -61,8 +61,8 @@ impl Report {
         let mut day_losers = Vec::new();
         let tickers_futs: JoinSet<_> = conf
             .watched_stocks
-            .to_owned()
-            .into_iter()
+            .iter()
+            .cloned()
             .map(|ticker| async move {
                 let provider = yahoo::YahooConnector::new().context("Error connecting to yahoo")?;
                 let ticker_data = provider

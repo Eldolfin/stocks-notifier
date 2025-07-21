@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
         let message = report.to_formatted_message();
         if args.dry_run {
             info!("Dry run mode: report that would have been sent:");
-            println!("{}", message);
+            println!("{message}");
         } else {
             bot.send_message(conf.chat_id, message)
                 .parse_mode(teloxide::types::ParseMode::MarkdownV2)
