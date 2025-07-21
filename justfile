@@ -1,4 +1,5 @@
 set dotenv-load := true
+set positional-arguments
 export RUST_LOG := "debug"
 
 # Display available commands
@@ -10,8 +11,8 @@ watch:
     git ls-files | entr -c just run
 
 # Build & run the program
-run:
-    cargo run
+@run *args='':
+    cargo run -- $@
 
 # Build & run the program saving logs to ./logs/
 run-logs:
