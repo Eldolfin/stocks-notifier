@@ -1,3 +1,4 @@
+[![Rust](https://github.com/Eldolfin/stocks-notifier/actions/workflows/rust.yml/badge.svg)](https://github.com/Eldolfin/stocks-notifier/actions/workflows/rust.yml)
 # Stocks Notifier
 
 A simple program that sends alerts when a watched stock drops by a specified
