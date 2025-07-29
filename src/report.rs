@@ -97,9 +97,13 @@ impl Report {
                 .replace("Company", "")
                 .trim()
                 .to_string();
-            let quotes = ticker_data
-                .quotes()
-                .with_context(|| format!("Failed to get quotes for {ticker}"))?;
+            let quotes = match ticker_data.quotes() {
+                Ok(quotes) => quotes,
+                Err(err) => {
+                    warn!("Failed to get quotes for {ticker}: {err:?}");
+                    continue;
+                }
+            };
             let Some(last_week) = quotes.iter().rev().nth(6) else {
                 warn!("Skipping {ticker} as it's missing quotes[-7] (last week's price)");
                 continue;
