@@ -9,7 +9,7 @@ pub(crate) struct EnvConfig {
     pub(crate) day_delta_threshold: f64,
     pub(crate) watched_stocks: Vec<String>,
 }
-
+use std::collections::HashSet;
 impl EnvConfig {
     pub(crate) fn new() -> anyhow::Result<Self> {
         pub(crate) fn var(name: &str) -> anyhow::Result<std::string::String> {
@@ -53,6 +53,7 @@ pub(crate) struct AlertItem {
 pub(crate) struct Report {
     pub(crate) week_losers: Vec<AlertItem>,
     pub(crate) day_losers: Vec<AlertItem>,
+    pub(crate) fetching_failures: Vec<String>,
 }
 
 impl Report {
@@ -64,21 +65,30 @@ impl Report {
             .iter()
             .cloned()
             .map(|ticker| async move {
-                let provider = yahoo::YahooConnector::new().context("Error connecting to yahoo")?;
+                let provider = yahoo::YahooConnector::new().expect("Error connecting to yahoo");
                 let ticker_data = provider
                     .get_quote_range(&ticker, "1d", "7d")
                     .await
-                    .with_context(|| {
-                        format!("Could not retrieve last 7 days for ticker {ticker}")
-                    })?;
-                Ok((ticker.to_owned(), ticker_data))
+                    .inspect(|err| {
+                        warn!("Could not retrieve last 7 days for ticker {ticker}: {err:?}")
+                    })
+                    .ok()?;
+                Some((ticker.to_owned(), ticker_data))
             })
             .collect();
         let tickers = tickers_futs
             .join_all()
             .await
             .into_iter()
-            .collect::<Result<Vec<_>, anyhow::Error>>()?;
+            .filter_map(|ticker| ticker)
+            .collect::<Vec<_>>();
+        // 🤢
+        let fetched_ticker_names = tickers.iter().map(|(ticker, _)| ticker).cloned();
+        let all_stocks: HashSet<String> = HashSet::from_iter(conf.watched_stocks.iter().cloned());
+        let success_stocks: HashSet<String> = HashSet::from_iter(fetched_ticker_names);
+        let failed_stocks: HashSet<String> =
+            all_stocks.difference(&success_stocks).cloned().collect();
+        let fetching_failures: Vec<String> = failed_stocks.into_iter().collect();
         for (ticker, ticker_data) in tickers {
             let ticker_meta = ticker_data
                 .metadata()
@@ -104,7 +114,7 @@ impl Report {
                     continue;
                 }
             };
-            let Some(last_week) = quotes.iter().rev().nth(6) else {
+            let Some(last_week) = quotes.iter().next() else {
                 warn!("Skipping {ticker} as it's missing quotes[-7] (last week's price)");
                 continue;
             };
@@ -159,6 +169,7 @@ impl Report {
         Ok(Self {
             week_losers,
             day_losers,
+            fetching_failures,
         })
     }
 
@@ -189,7 +200,13 @@ impl Report {
 🚨 __Stocks alert__ 🚨
 {week_losers}
 {day_losers}
-"#
+\-\-\-\-
+fetching failures:
+```
+{:?}
+```
+"#,
+            self.fetching_failures
         )
     }
 
