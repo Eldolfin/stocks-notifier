@@ -19,7 +19,7 @@ run-logs:
     @mkdir -p logs
     just run 2>&1 | tee "logs/$(date --rfc-3339=seconds)"
 
-# Deploy to my server
+# Deploy to my server - DEPRECATED: now uses github action instead, it's free and reliable :)
 deploy:
     git push --force-with-lease deploy
     ssh ubuntu@search.eldolfin.top "cd stocks-notifier && git reset --hard"
