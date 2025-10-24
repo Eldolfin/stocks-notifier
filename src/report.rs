@@ -80,7 +80,7 @@ impl Report {
             .join_all()
             .await
             .into_iter()
-            .filter_map(|ticker| ticker)
+            .flatten()
             .collect::<Vec<_>>();
         // 🤢
         let fetched_ticker_names = tickers.iter().map(|(ticker, _)| ticker).cloned();
@@ -114,7 +114,7 @@ impl Report {
                     continue;
                 }
             };
-            let Some(last_week) = quotes.iter().next() else {
+            let Some(last_week) = quotes.first() else {
                 warn!("Skipping {ticker} as it's missing quotes[-7] (last week's price)");
                 continue;
             };
